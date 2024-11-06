@@ -41,26 +41,30 @@ type Todoist struct {
 }
 
 func NewTodoist(ctx context.Context, config c.Config) *Todoist {
-	return &Todoist{
+	todoist := &Todoist{
 		ctx:      ctx,
 		config:   config,
-		Projects: getProjects(ctx, config),
+		Projects: []Project{},
 		Tasks:    []Task{},
 	}
+
+	todoist.getProjects()
+
+	return todoist
 }
 
-func makeRequest(ctx context.Context, path string, token string) []byte {
+func (t Todoist) makeRequest(path string) []byte {
 	client := http.Client{}
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://api.todoist.com/rest/v2/%s", path), nil)
+	req, err := http.NewRequestWithContext(t.ctx, "GET", fmt.Sprintf("https://api.todoist.com/rest/v2/%s", path), nil)
 	if err != nil {
 		slog.Error("Error making request to todoist api", "error", err)
 		return []byte{}
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", t.config.Token))
 	res, err := client.Do(req)
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
+		if t.ctx.Err() == context.DeadlineExceeded {
 			slog.Error("Request to Todoist API timed out")
 		} else {
 			slog.Error("Error making request to Todoist API", "error", err)
@@ -78,14 +82,29 @@ func makeRequest(ctx context.Context, path string, token string) []byte {
 	return bytes
 }
 
-func getProjects(ctx context.Context, config c.Config) []Project {
+func (t *Todoist) getProjects() {
 	var projects []Project
 
-	bytes := makeRequest(ctx, "projects", config.Token)
+	bytes := t.makeRequest("projects")
 	if err := json.Unmarshal(bytes, &projects); err != nil {
 		slog.Error("Erorr unmarashling JSON for projects", "error", err)
-		return projects
+		return
 	}
 
-	return projects
+	t.Projects = projects
+}
+
+func (t *Todoist) GetTasksForProject(projectID string) {
+	var tasks []Task
+
+	bytes := t.makeRequest("tasks")
+	if err := json.Unmarshal(bytes, &tasks); err != nil {
+		slog.Error("Erorr unmarashling JSON for tasks in project", "error", err, "project id", projectID)
+		return
+	}
+
+	for _, task := range tasks {
+		if task.ID != projectID {
+		}
+	}
 }
