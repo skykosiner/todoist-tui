@@ -23,8 +23,8 @@ type Task struct {
 	IsCompleted bool   `json:"is_completed"`
 	Due         DueDate
 	ParentID    string `json:"parent_id"`
-	Priority    string `json:"priority"`
-	ProjectID   int    `json:"project_id"`
+	Priority    int    `json:"priority"`
+	ProjectID   string `json:"project_id"`
 }
 
 type Project struct {
@@ -95,6 +95,7 @@ func (t *Todoist) getProjects() {
 }
 
 func (t *Todoist) GetTasksForProject(projectID string) {
+	// TODO: There is deffo a beter way to do this
 	var tasks []Task
 
 	bytes := t.makeRequest("tasks")
@@ -103,8 +104,19 @@ func (t *Todoist) GetTasksForProject(projectID string) {
 		return
 	}
 
+	var projectTasks []Task
 	for _, task := range tasks {
-		if task.ID != projectID {
+		if task.ProjectID == projectID {
+			projectTasks = append(projectTasks, task)
 		}
 	}
+
+	for i := range t.Projects {
+		if t.Projects[i].ID == projectID {
+			t.Projects[i].Tasks = projectTasks
+			return
+		}
+	}
+
+	slog.Error("No project found", "project id", projectID)
 }
